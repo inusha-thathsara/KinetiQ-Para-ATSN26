@@ -18,6 +18,27 @@ def _get_client() -> genai.Client | None:
     return genai.Client(api_key=settings.gemini_api_key)
 
 
+def _generate_json_with_fallback(client: genai.Client, contents, temperature: float = 0.3) -> tuple[dict | None, str]:
+    """Try primary Gemini model, then configured fallback Flash models on 404/503 spikes."""
+    candidates = list(dict.fromkeys([settings.gemini_model, *settings.gemini_fallback_models]))
+    for model_id in candidates:
+        try:
+            resp = client.models.generate_content(
+                model=model_id,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=temperature,
+                ),
+            )
+            parsed = json.loads(resp.text or "{}")
+            if isinstance(parsed, dict) and parsed:
+                return parsed, f"gemini ({model_id})"
+        except Exception:
+            continue
+    return None, "template_fallback"
+
+
 def _template_coaching(
     module_type: str,
     ipc_class: str,
@@ -149,37 +170,26 @@ def generate_coaching_feedback(
         if kf.exists():
             parts.append(types.Part.from_bytes(data=kf.read_bytes(), mime_type="image/jpeg"))
 
-    try:
-        resp = client.models.generate_content(
-            model=settings.gemini_model,
-            contents=parts,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.3,
-            ),
-        )
-        parsed = json.loads(resp.text or "{}")
-        if parsed.get("cue_en") and parsed.get("cue_ar"):
-            return {
-                "findings": findings,
-                "cue_en": str(parsed["cue_en"]).strip(),
-                "cue_ar": str(parsed["cue_ar"]).strip(),
-                "confidence_note_en": str(
-                    parsed.get(
-                        "confidence_note_en",
-                        f"Vision confidence {int(detection_confidence * 100)}%. Coaching indicator only.",
-                    )
-                ).strip(),
-                "confidence_note_ar": str(
-                    parsed.get(
-                        "confidence_note_ar",
-                        f"دقة الرصد {int(detection_confidence * 100)}%. مؤشر تدريبي فقط.",
-                    )
-                ).strip(),
-                "ai_source": "gemini",
-            }
-    except Exception:
-        pass
+    parsed, src = _generate_json_with_fallback(client, parts, temperature=0.3)
+    if parsed and parsed.get("cue_en") and parsed.get("cue_ar"):
+        return {
+            "findings": findings,
+            "cue_en": str(parsed["cue_en"]).strip(),
+            "cue_ar": str(parsed["cue_ar"]).strip(),
+            "confidence_note_en": str(
+                parsed.get(
+                    "confidence_note_en",
+                    f"Vision confidence {int(detection_confidence * 100)}%. Coaching indicator only.",
+                )
+            ).strip(),
+            "confidence_note_ar": str(
+                parsed.get(
+                    "confidence_note_ar",
+                    f"دقة الرصد {int(detection_confidence * 100)}%. مؤشر تدريبي فقط.",
+                )
+            ).strip(),
+            "ai_source": src,
+        }
 
     return _template_coaching(module_type, ipc_class, risk_level, findings, load_summary, detection_confidence)
 
@@ -215,17 +225,9 @@ def generate_scout_summary(scout_safe_data: dict) -> tuple[str, str, str]:
         "Do NOT mention health, injury, fatigue, or medical details. Return JSON with keys summary_en, summary_ar.\n"
         + json.dumps(scout_safe_data, ensure_ascii=False)
     )
-    try:
-        resp = client.models.generate_content(
-            model=settings.gemini_model,
-            contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.3),
-        )
-        parsed = json.loads(resp.text or "{}")
-        if parsed.get("summary_en") and parsed.get("summary_ar"):
-            return str(parsed["summary_en"]).strip(), str(parsed["summary_ar"]).strip(), "gemini"
-    except Exception:
-        pass
+    parsed, src = _generate_json_with_fallback(client, prompt, temperature=0.3)
+    if parsed and parsed.get("summary_en") and parsed.get("summary_ar"):
+        return str(parsed["summary_en"]).strip(), str(parsed["summary_ar"]).strip(), src
 
     return fallback_en, fallback_ar, "template_fallback"
 
@@ -240,20 +242,43 @@ def translate_scout_nl_query(query: str) -> tuple[dict, str]:
     if client is not None:
         prompt = (
             "Translate this natural-language Paralympic scout query (English or Arabic) into a JSON filter object "
-            "with optional keys: ipc_class (e.g. 'T54', 'T64', 'T12', 'T37', 'T40'), event (e.g. '100m', '400m', '800m'), "
-            "max_seconds (float), verified_only (bool), country (string). Omit keys not mentioned.\nQuery: " + q
+            "with ONLY these optional keys:\n"
+            "- ipc_class: string like 'T54', 'T64', 'T12', 'T37', 'T40'\n"
+            "- disability_category: ONLY one of 'wheelchair_racing', 'prosthetic_standing', 'cerebral_palsy_standing', 'visual_impairment', 'short_stature'\n"
+            "- event: ONLY a track distance string from ['100m', '200m', '400m', '800m', '1500m'] (NEVER put wheelchair/disability words in event)\n"
+            "- max_seconds: float\n"
+            "- verified_only: bool\n"
+            "- country: English country name\n"
+            "Omit keys not mentioned.\nQuery: " + q
         )
-        try:
-            resp = client.models.generate_content(
-                model=settings.gemini_model,
-                contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.0),
-            )
-            parsed = json.loads(resp.text or "{}")
-            if isinstance(parsed, dict) and parsed:
-                return {k: v for k, v in parsed.items() if v not in (None, "", [])}, "gemini"
-        except Exception:
-            pass
+        parsed, src = _generate_json_with_fallback(client, prompt, temperature=0.0)
+        if parsed:
+            valid_events = {"100m", "200m", "400m", "800m", "1500m"}
+            valid_cats = {
+                "wheelchair_racing",
+                "prosthetic_standing",
+                "cerebral_palsy_standing",
+                "visual_impairment",
+                "short_stature",
+            }
+            clean: dict = {}
+            if parsed.get("ipc_class"):
+                clean["ipc_class"] = str(parsed["ipc_class"]).upper().strip()
+            if parsed.get("disability_category") in valid_cats:
+                clean["disability_category"] = parsed["disability_category"]
+            if parsed.get("event") and str(parsed["event"]).lower().strip() in valid_events:
+                clean["event"] = str(parsed["event"]).lower().strip()
+            if parsed.get("max_seconds") is not None:
+                try:
+                    clean["max_seconds"] = float(parsed["max_seconds"])
+                except (TypeError, ValueError):
+                    pass
+            if parsed.get("verified_only") is True:
+                clean["verified_only"] = True
+            if parsed.get("country"):
+                clean["country"] = str(parsed["country"]).strip()
+            if clean:
+                return clean, src
 
     # Deterministic bilingual regex fallback (instant & offline-proof)
     cls_m = re.search(r"\b(T\d{2})\b", q, re.IGNORECASE)

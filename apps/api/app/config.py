@@ -14,11 +14,12 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-only-kinetiq-para-atsn26-secret-key-32bytes"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 12
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
 
-    # Gemini: key comes from .env, model ID is pinned here once confirmed in the docs.
+    # Gemini: key comes from .env; fast active Flash model with automatic fallback chain on 503 spikes.
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_fallback_models: list[str] = ["gemini-3.1-flash-lite", "gemini-3.8-flash"]
 
 
 settings = Settings()

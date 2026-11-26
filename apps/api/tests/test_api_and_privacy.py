@@ -125,6 +125,19 @@ def test_end_to_end_demo_clip_analysis_wheelchair_and_guide_sync(client: TestCli
 
 
 def test_baseline_building_for_new_athlete_t40(client: TestClient):
+    # Ensure idempotent test even when reusing a persistent local dev SQLite DB
+    from app.database import SessionLocal
+    from app.models import AthleteBaseline, AthleteProfile
+
+    db = SessionLocal()
+    try:
+        omar = db.query(AthleteProfile).filter_by(ipc_class="T40").first()
+        if omar:
+            db.query(AthleteBaseline).filter_by(athlete_id=omar.id).delete()
+            db.commit()
+    finally:
+        db.close()
+
     omar_hdr = _login(client, "omar.t40@kinetiq.demo")
     r = client.post(
         "/api/clips/analyze-demo",
