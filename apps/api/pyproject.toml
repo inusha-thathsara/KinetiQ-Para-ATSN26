@@ -1,0 +1,30 @@
+[project]
+name = "kinetiq-api"
+version = "0.1.0"
+description = "KinetiQ Para API: pose metrics, load engine, Gemini coaching, passport & privacy"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy>=2.0",
+    "pydantic-settings>=2.4",
+    "python-multipart>=0.0.9",
+    "pyjwt>=2.9",
+    "bcrypt>=4.2",
+    "numpy",
+    "scipy",
+    "opencv-python-headless",
+    "mediapipe",
+    "google-genai",
+    "httpx",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
