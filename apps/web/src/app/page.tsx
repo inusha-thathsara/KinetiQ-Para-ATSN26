@@ -1,68 +1,291 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useCallback, useEffect, useState } from "react";
+import { Accessibility, Shield, Sparkles, Users } from "lucide-react";
+import { AccessibilityBar } from "@/components/AccessibilityBar";
+import { AthleteView } from "@/components/AthleteView";
+import { CoachView } from "@/components/CoachView";
+import { ScoutView } from "@/components/ScoutView";
+import {
+  apiFetch,
+  DemoAccount,
+  PrivateHealthView,
+  ScoutPassportView,
+  UserSummary,
+} from "@/lib/api";
+import { DICT, Lang } from "@/lib/i18n";
+
+export default function HomePage() {
+  const [lang, setLang] = useState<Lang>("en");
+  const [highContrast, setHighContrast] = useState(false);
+  const [fontScale, setFontScale] = useState(100);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [liveMessage, setLiveMessage] = useState("");
+
+  const [demoAccounts, setDemoAccounts] = useState<DemoAccount[]>([]);
+  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<UserSummary | null>(null);
+  const [athleteData, setAthleteData] = useState<PrivateHealthView | null>(null);
+  const [coachSquad, setCoachSquad] = useState<PrivateHealthView[]>([]);
+  const [scoutPassports, setScoutPassports] = useState<ScoutPassportView[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const t = DICT[lang];
+
+  // Sync HTML dir, lang, high-contrast class, and font size
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  }, [lang]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("high-contrast", highContrast);
+  }, [highContrast]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--base-font-size", `${Math.round(16 * (fontScale / 100))}px`);
+  }, [fontScale]);
+
+  // Load seeded demo accounts on mount
+  useEffect(() => {
+    apiFetch<DemoAccount[]>("/api/auth/demo-accounts")
+      .then(setDemoAccounts)
+      .catch((err) => setError(`Backend unreachable at http://localhost:8000 (${(err as Error).message})`));
+  }, []);
+
+  const stopSpeech = useCallback(() => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+  }, []);
+
+  const speak = useCallback(
+    (text: string, targetLang?: Lang) => {
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        setLiveMessage("Speech synthesis not supported in this browser.");
+        return;
+      }
+      const chosenLang = targetLang || lang;
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = chosenLang === "ar" ? "ar-SA" : "en-US";
+      const voices = window.speechSynthesis.getVoices();
+      const match = voices.find((v) => v.lang.toLowerCase().startsWith(chosenLang));
+      if (match) {
+        utter.voice = match;
+      } else if (chosenLang === "ar") {
+        setLiveMessage("Arabic OS voice not installed on this device; speaking with default TTS voice.");
+      }
+      utter.onstart = () => setIsSpeaking(true);
+      utter.onend = () => setIsSpeaking(false);
+      utter.onerror = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utter);
+    },
+    [lang]
+  );
+
+  const loadRoleData = useCallback(async (activeToken: string, activeUser: UserSummary) => {
+    if (activeUser.role === "athlete") {
+      const d = await apiFetch<PrivateHealthView>("/api/athlete/me/dashboard", {}, activeToken);
+      setAthleteData(d);
+    } else if (activeUser.role === "coach") {
+      const sq = await apiFetch<PrivateHealthView[]>("/api/coach/readiness", {}, activeToken);
+      setCoachSquad(sq);
+    } else {
+      const pp = await apiFetch<ScoutPassportView[]>("/api/scout/passports", {}, activeToken);
+      setScoutPassports(pp);
+    }
+  }, []);
+
+  async function loginAs(email: string, password = "demo1234") {
+    setLoading(true);
+    setError(null);
+    stopSpeech();
+    try {
+      const res = await apiFetch<{ access_token: string; user: UserSummary }>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      setToken(res.access_token);
+      setUser(res.user);
+      await loadRoleData(res.access_token, res.user);
+      setLiveMessage(`Signed in as ${res.user.full_name} (${res.user.role}).`);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleReadSummary() {
+    if (user?.role === "athlete" && athleteData?.latest_clip) {
+      const cue = lang === "ar" ? athleteData.latest_clip.cue_ar : athleteData.latest_clip.cue_en;
+      const loadMsg =
+        lang === "ar"
+          ? athleteData.load_summary.combined_reason_ar
+          : athleteData.load_summary.combined_reason_en;
+      speak(`${loadMsg}. ${cue}`, lang);
+      return;
+    }
+    if (user?.role === "coach" && coachSquad.length > 0) {
+      const top = coachSquad[0];
+      const msg =
+        lang === "ar"
+          ? `أعلى أولوية للمتابعة: ${top.full_name_ar}، فئة ${top.ipc_class}. ${top.load_summary.combined_reason_ar}`
+          : `Top priority athlete: ${top.full_name}, class ${top.ipc_class}. ${top.load_summary.combined_reason_en}`;
+      speak(msg, lang);
+      return;
+    }
+    speak(`${t.brand}. ${t.tagline}`, lang);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div className="flex min-h-screen flex-col">
+      <AccessibilityBar
+        lang={lang}
+        onToggleLang={() => setLang((l) => (l === "en" ? "ar" : "en"))}
+        highContrast={highContrast}
+        onToggleHighContrast={() => setHighContrast((h) => !h)}
+        fontScale={fontScale}
+        onAdjustFont={(d) => setFontScale((s) => Math.max(90, Math.min(140, s + d)))}
+        isSpeaking={isSpeaking}
+        onReadSummary={handleReadSummary}
+        onStopSpeech={stopSpeech}
+        liveMessage={liveMessage}
+        userName={user ? (lang === "ar" ? user.full_name_ar : user.full_name) : null}
+        userRole={user?.role}
+        onSignOut={() => {
+          stopSpeech();
+          setToken(null);
+          setUser(null);
+          setAthleteData(null);
+          setCoachSquad([]);
+          setScoutPassports([]);
+        }}
+      />
+
+      <main id="main-content" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
+        {error && (
+          <div role="alert" className="mb-4 rounded-lg border-2 border-rose-500 bg-rose-50 p-4 text-sm font-semibold text-rose-900">
+            {error}
+          </div>
+        )}
+
+        {!user || !token ? (
+          <div className="space-y-6">
+            <section className="k-card p-6">
+              <div className="max-w-3xl space-y-2">
+                <div className="inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-900">
+                  <Accessibility className="h-4 w-4" aria-hidden="true" />
+                  WCAG AAA · English &amp; Arabic RTL · Voice-First Para-Athletics GenAI
+                </div>
+                <h1 className="text-2xl font-extrabold md:text-3xl">{t.loginHeading}</h1>
+                <p className="text-sm opacity-85">{t.loginSub}</p>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+                {demoAccounts.map((acc) => {
+                  const roleLabel =
+                    acc.role === "athlete"
+                      ? t.roleAthlete
+                      : acc.role === "coach"
+                        ? t.roleCoach
+                        : t.roleScout;
+                  const accent =
+                    acc.role === "coach"
+                      ? "border-rose-300"
+                      : acc.role === "scout"
+                        ? "border-emerald-300"
+                        : "border-sky-300";
+                  return (
+                    <button
+                      key={acc.email}
+                      type="button"
+                      disabled={loading}
+                      onClick={() => loginAs(acc.email, acc.password)}
+                      className={`k-muted flex flex-col items-start justify-between gap-2 border-2 p-4 text-start transition hover:shadow-md ${accent}`}
+                    >
+                      <div className="flex w-full items-center justify-between gap-2">
+                        <span className="rounded bg-[#1b365d] px-2 py-0.5 text-[11px] font-bold text-white">
+                          {roleLabel}
+                        </span>
+                        {acc.ipc_class && (
+                          <span className="rounded-full bg-sky-200 px-2 py-0.5 text-xs font-bold text-sky-950">
+                            IPC {acc.ipc_class}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-base font-bold">
+                        {lang === "ar" ? acc.full_name_ar : acc.full_name}
+                      </div>
+                      <div className="text-xs opacity-80">
+                        {acc.disability_category
+                          ? acc.disability_category.replaceAll("_", " ")
+                          : acc.email}
+                      </div>
+                      <span className="mt-1 text-xs font-bold text-sky-700">
+                        {t.enterAs} {roleLabel} →
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* 3 Feature Highlights */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="k-card space-y-1.5 p-4">
+                <Sparkles className="h-5 w-5 text-sky-700" aria-hidden="true" />
+                <h2 className="text-sm font-bold">Impairment-Aware Multimodal GenAI</h2>
+                <p className="text-xs opacity-85">
+                  MediaPipe Pose + Gemini 2.5 Vision keyframes track each Para-athlete against their own personal baseline—never able-bodied norms.
+                </p>
+              </div>
+              <div className="k-card space-y-1.5 p-4">
+                <Shield className="h-5 w-5 text-emerald-700" aria-hidden="true" />
+                <h2 className="text-sm font-bold">Strict 2-Layer Disability Privacy</h2>
+                <p className="text-xs opacity-85">
+                  Shoulder fatigue, ACWR spikes, and gait alerts stay strictly between Athlete and Coach—structurally excluded from Scout APIs and PDF exports.
+                </p>
+              </div>
+              <div className="k-card space-y-1.5 p-4">
+                <Users className="h-5 w-5 text-teal-700" aria-hidden="true" />
+                <h2 className="text-sm font-bold">Arabic RTL &amp; Voice-First Access</h2>
+                <p className="text-xs opacity-85">
+                  One-tap Arabic RTL switching, WCAG AAA high contrast, scalable text, and English/Arabic TTS voice coaching built for T11–T13 visually impaired runners.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : user.role === "athlete" && athleteData ? (
+          <AthleteView
+            data={athleteData}
+            token={token}
+            lang={lang}
+            onRefresh={() => loadRoleData(token, user)}
+            onSpeak={speak}
+            onAnnounce={setLiveMessage}
+          />
+        ) : user.role === "coach" ? (
+          <CoachView
+            squad={coachSquad}
+            token={token}
+            lang={lang}
+            onRefresh={() => loadRoleData(token, user)}
+            onSpeak={speak}
+            onAnnounce={setLiveMessage}
+          />
+        ) : (
+          <ScoutView
+            initialPassports={scoutPassports}
+            token={token}
+            lang={lang}
+            onSpeak={speak}
+            onAnnounce={setLiveMessage}
+          />
+        )}
       </main>
     </div>
   );

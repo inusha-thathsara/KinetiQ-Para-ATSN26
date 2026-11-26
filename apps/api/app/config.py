@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     app_name: str = "KinetiQ Para API"
     database_url: str = f"sqlite:///{(API_ROOT / 'data' / 'kinetiq.db').as_posix()}"
     storage_dir: Path = API_ROOT / "data" / "storage"
-    jwt_secret: str = "dev-only-change-me"
+    jwt_secret: str = "dev-only-kinetiq-para-atsn26-secret-key-32bytes"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 12
     cors_origins: list[str] = ["http://localhost:3000"]

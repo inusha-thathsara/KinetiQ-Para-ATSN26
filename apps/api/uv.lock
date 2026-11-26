@@ -474,6 +474,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pyjwt" },
     { name = "python-multipart" },
+    { name = "reportlab" },
     { name = "scipy" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extra = ["standard"] },
@@ -497,6 +498,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.4" },
     { name = "pyjwt", specifier = ">=2.9" },
     { name = "python-multipart", specifier = ">=0.0.9" },
+    { name = "reportlab", specifier = ">=5.1.2" },
     { name = "scipy" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
@@ -871,6 +873,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/44/00/fc5d40087cc55bf3d7bb5ef55cc3e6513e6946afe33a188680fe1d846eb0/pyyaml-6.0.4-cp312-cp312-win32.whl", hash = "sha256:60e9da2772e259307650e03c24f50e3bc2d9fa5ed1ba44c47582e13b0e7708d1", size = 140667, upload-time = "2026-11-20T23:35:08.846Z" },
     { url = "https://files.pythonhosted.org/packages/a3/95/307a6ceafbad9a08300743d19329c31726224e583e05c4fe5358522ba283/pyyaml-6.0.4-cp312-cp312-win_amd64.whl", hash = "sha256:131d11bd9b60d705a6388366d77ed67850995a4d2be85fe149785a257c17e531", size = 154452, upload-time = "2026-11-20T23:35:09.792Z" },
     { url = "https://files.pythonhosted.org/packages/62/81/15c300b14cca818cb9ee27d8cb61cc124229d04f4f7f7bc4e3fca8e2e8d8/pyyaml-6.0.4-cp312-cp312-win_arm64.whl", hash = "sha256:69380d4bae12aab2a2c9532deff6a2841bc9fda47c333691bd2368b696301768", size = 147167, upload-time = "2026-11-20T23:35:10.763Z" },
+]
+
+[[package]]
+name = "reportlab"
+version = "5.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "charset-normalizer" },
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c8/b8/9fa1c49fbc6fb9f4c9f2445123af346792b7fef220152004b13ec51b37ee/reportlab-5.1.2.tar.gz", hash = "sha256:2d2785281fc435e39fb33eee7f8c10b10ffee626dad9de360310390aacaf2f38", size = 3794521, upload-time = "2026-11-25T16:08:24.398Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/bb/603afbaa72589bd9519bef5d631c099407a6853465814e6a22b77a7b12d3/reportlab-5.1.2-py3-none-any.whl", hash = "sha256:8ec602de18aff4db94f3b5846f877e66edbcb42969c4100b2ae5dd69a7f3e84e", size = 2017267, upload-time = "2026-11-25T16:07:57.882Z" },
 ]
 
 [[package]]

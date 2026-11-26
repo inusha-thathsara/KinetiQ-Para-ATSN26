@@ -17,6 +17,7 @@ dependencies = [
     "mediapipe",
     "google-genai",
     "httpx",
+    "reportlab>=5.1.2",
 ]
 
 [dependency-groups]

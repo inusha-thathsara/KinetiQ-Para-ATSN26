@@ -1,0 +1,128 @@
+"""Accessible PDF exporter for Verified Para-Athlete Passports.
+
+Structurally accepts ONLY `ScoutPassportView` so private health/injury-risk fields
+can never appear in exported PDF passports.
+"""
+
+from __future__ import annotations
+
+from io import BytesIO
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+from app.schemas.privacy import ScoutPassportView
+
+
+def render_passport_pdf(passport: ScoutPassportView) -> bytes:
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+        title=f"KinetiQ Para Verified Passport - {passport.full_name} ({passport.ipc_class})",
+        author="KinetiQ Para (ATSN'26)",
+        subject=f"Verified Para-Athletics Passport for {passport.full_name}",
+    )
+
+    styles = getSampleStyleSheet()
+    navy = colors.HexColor("#1B365D")
+    blue = colors.HexColor("#2B6CB0")
+    slate = colors.HexColor("#4A5568")
+
+    title_style = ParagraphStyle("KTitle", parent=styles["Title"], textColor=navy, fontSize=18, leading=22, alignment=0)
+    h2_style = ParagraphStyle("KH2", parent=styles["Heading2"], textColor=blue, fontSize=12, spaceBefore=10, spaceAfter=4)
+    body_style = ParagraphStyle("KBody", parent=styles["Normal"], textColor=colors.HexColor("#1A202C"), fontSize=10, leading=14)
+    meta_style = ParagraphStyle("KMeta", parent=styles["Normal"], textColor=slate, fontSize=9, leading=12)
+
+    story = []
+    story.append(Paragraph("KINETIQ PARA — VERIFIED PARA-ATHLETE PASSPORT", meta_style))
+    story.append(Paragraph(f"{passport.full_name}  |  IPC Class {passport.ipc_class}", title_style))
+    story.append(
+        Paragraph(
+            f"{passport.affiliation} • {passport.country} • Events: {', '.join(passport.primary_events)}",
+            meta_style,
+        )
+    )
+    if passport.is_demo_data:
+        story.append(Spacer(1, 3 * mm))
+        story.append(
+            Paragraph(
+                "<b>Demo Data Notice:</b> Seeded demonstration profile for ATSN'26 prototype evaluation.",
+                meta_style,
+            )
+        )
+    story.append(Spacer(1, 5 * mm))
+
+    story.append(Paragraph("1. Verified Scouting Summary", h2_style))
+    story.append(Paragraph(passport.ai_scout_summary_en or passport.bio_en, body_style))
+    story.append(Spacer(1, 4 * mm))
+
+    story.append(Paragraph("2. Training Consistency & Form Consistency Index", h2_style))
+    summary_table = Table(
+        [
+            ["IPC Sport Class", "Form Consistency Score", "Coach-Confirmed Sessions (30d)", "Privacy Layer"],
+            [
+                passport.ipc_class,
+                f"{passport.form_consistency_score:.0f} / 100",
+                str(passport.coach_confirmed_sessions_30d),
+                "Scout-Safe (Health Alerts Hidden)",
+            ],
+        ],
+        colWidths=[35 * mm, 44 * mm, 48 * mm, 47 * mm],
+    )
+    summary_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), navy),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E0")),
+                ("PADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    story.append(summary_table)
+    story.append(Spacer(1, 5 * mm))
+
+    story.append(Paragraph("3. Competition Results & Trust Badges", h2_style))
+    ach_rows = [["Event", "Class", "Result", "Competition", "Date", "Verification Badge"]]
+    for a in passport.achievements:
+        badge = a.verification_tier.replace("_", " ").title()
+        ach_rows.append([a.event_name, a.ipc_class, a.result_value, a.competition_name, str(a.achieved_date), badge])
+    if len(ach_rows) == 1:
+        ach_rows.append(["—", passport.ipc_class, "—", "No results logged yet", "—", "—"])
+
+    ach_table = Table(ach_rows, colWidths=[18 * mm, 16 * mm, 22 * mm, 58 * mm, 24 * mm, 36 * mm])
+    ach_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), navy),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F7FAFC")]),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E0")),
+                ("PADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+    story.append(ach_table)
+    story.append(Spacer(1, 6 * mm))
+
+    story.append(
+        Paragraph(
+            "Generated by KinetiQ Para (ATSN'26 Assistive GenAI Competition). "
+            "Private medical, workload-spike, and injury-risk indicators are excluded by 2-layer privacy enforcement.",
+            meta_style,
+        )
+    )
+    doc.build(story)
+    return buf.getvalue()
