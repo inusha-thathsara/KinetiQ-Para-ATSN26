@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Award, CheckCircle2, Download, Search, ShieldCheck, Sparkles, Star, Volume2 } from "lucide-react";
 import { apiFetch, downloadPassportPdf, mediaUrl, ScoutPassportView } from "@/lib/api";
-import { DICT, Lang } from "@/lib/i18n";
+import { COUNTRY_LABELS, DICT, Lang, TIER_LABELS, trMap } from "@/lib/i18n";
 
 interface ScoutViewProps {
   initialPassports: ScoutPassportView[];
@@ -127,13 +127,21 @@ export function ScoutView({
 
         {/* Quick Bilingual NL Examples */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-semibold opacity-75">Quick AI Queries:</span>
-          {[
-            "verified T54 400m under 52s",
-            "متسابقي كراسي متحركة T54 موثق",
-            "verified T64 100m under 12s",
-            "visually impaired T12",
-          ].map((q) => (
+          <span className="font-semibold opacity-75">{t.quickAiQueries}</span>
+          {(lang === "ar"
+            ? [
+                "متسابقي كراسي متحركة T54 موثق",
+                "عداء T64 100m أقل من 12 ثانية",
+                "إعاقة بصرية T12",
+                "verified T54 400m under 52s",
+              ]
+            : [
+                "verified T54 400m under 52s",
+                "متسابقي كراسي متحركة T54 موثق",
+                "verified T64 100m under 12s",
+                "visually impaired T12",
+              ]
+          ).map((q) => (
             <button
               key={q}
               type="button"
@@ -146,15 +154,15 @@ export function ScoutView({
         </div>
 
         {interpreted && (
-          <div className="rounded-md bg-slate-900 px-3 py-2 font-mono text-xs text-sky-200">
-            AI Interpreted Filters: {JSON.stringify(interpreted)}
+          <div className="rounded-md bg-slate-900 px-3 py-2 font-mono text-xs text-sky-200" dir="ltr">
+            {t.interpretedFilters} {JSON.stringify(interpreted)}
           </div>
         )}
 
         {/* Structured Filters */}
         <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-3 text-xs">
           <select
-            aria-label="Filter by IPC class"
+            aria-label={t.allIpcClasses}
             value={ipcFilter}
             onChange={(e) => {
               setIpcFilter(e.target.value);
@@ -162,16 +170,16 @@ export function ScoutView({
             }}
             className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900"
           >
-            <option value="">All IPC Classes</option>
-            <option value="T54">T54 (Wheelchair Racing)</option>
-            <option value="T64">T64 (Blade Sprinter)</option>
-            <option value="T12">T12 (Visually Impaired)</option>
-            <option value="T37">T37 (Ambulant CP)</option>
-            <option value="T40">T40 (Short Stature)</option>
+            <option value="">{t.allIpcClasses}</option>
+            <option value="T54">{t.clsT54}</option>
+            <option value="T64">{t.clsT64}</option>
+            <option value="T12">{t.clsT12}</option>
+            <option value="T37">{t.clsT37}</option>
+            <option value="T40">{t.clsT40}</option>
           </select>
 
           <select
-            aria-label="Filter by Event"
+            aria-label={t.allEvents}
             value={eventFilter}
             onChange={(e) => {
               setEventFilter(e.target.value);
@@ -179,7 +187,7 @@ export function ScoutView({
             }}
             className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900"
           >
-            <option value="">All Track Events</option>
+            <option value="">{t.allEvents}</option>
             <option value="100m">100m</option>
             <option value="200m">200m</option>
             <option value="400m">400m</option>
@@ -195,7 +203,7 @@ export function ScoutView({
                 applyStructuredFilters(ipcFilter, eventFilter, e.target.checked);
               }}
             />
-            Verified PBs Only
+            {t.verifiedOnlyLabel}
           </label>
         </div>
       </section>
@@ -211,10 +219,12 @@ export function ScoutView({
                     <span className="rounded-full bg-[#1b365d] px-3 py-0.5 text-xs font-bold text-white">
                       IPC {p.ipc_class}
                     </span>
-                    <span className="text-xs font-semibold text-slate-600">{p.country}</span>
+                    <span className="text-xs font-semibold text-slate-600">
+                      {trMap(COUNTRY_LABELS, p.country, lang)}
+                    </span>
                     {p.is_demo_data && (
                       <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
-                        Demo Data
+                        {t.demoData}
                       </span>
                     )}
                   </div>
@@ -227,7 +237,7 @@ export function ScoutView({
                 </div>
 
                 <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-center text-sky-950">
-                  <div className="text-[10px] font-bold uppercase">Form Consistency</div>
+                  <div className="text-[10px] font-bold uppercase">{t.formConsistency}</div>
                   <div className="text-lg font-black">{p.form_consistency_score}/100</div>
                 </div>
               </div>
@@ -249,10 +259,10 @@ export function ScoutView({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-bold">
                   <span className="flex items-center gap-1">
-                    <Award className="h-4 w-4 text-amber-600" aria-hidden="true" /> Competition Results
+                    <Award className="h-4 w-4 text-amber-600" aria-hidden="true" /> {t.competitionResults}
                   </span>
                   <span className="text-emerald-800">
-                    {p.coach_confirmed_sessions_30d} Coach-Confirmed Sessions (30d)
+                    {p.coach_confirmed_sessions_30d} {t.confirmedSessions30d}
                   </span>
                 </div>
                 {p.achievements.map((a) => (
@@ -269,7 +279,7 @@ export function ScoutView({
                             : "bg-amber-200 text-amber-950"
                       }`}
                     >
-                      {a.verification_tier.replace("_", " ")}
+                      {trMap(TIER_LABELS, a.verification_tier, lang)}
                     </span>
                   </div>
                 ))}

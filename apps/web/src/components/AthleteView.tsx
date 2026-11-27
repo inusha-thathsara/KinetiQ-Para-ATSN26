@@ -22,7 +22,16 @@ import {
   PrivateClip,
   PrivateHealthView,
 } from "@/lib/api";
-import { DICT, Lang } from "@/lib/i18n";
+import {
+  ADJUSTMENT_LABELS,
+  CATEGORY_LABELS,
+  DICT,
+  Lang,
+  RISK_LABELS,
+  TIER_LABELS,
+  trMap,
+  WITNESS_LABELS,
+} from "@/lib/i18n";
 
 interface AthleteViewProps {
   data: PrivateHealthView;
@@ -187,11 +196,11 @@ export function AthleteView({
                 IPC {data.ipc_class}
               </span>
               <span className="rounded-full bg-slate-200 px-3 py-0.5 text-xs font-semibold text-slate-800">
-                {data.disability_category.replaceAll("_", " ")}
+                {trMap(CATEGORY_LABELS, data.disability_category, lang)}
               </span>
               {data.is_demo_data && (
                 <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
-                  Demo Profile
+                  {t.demoProfile}
                 </span>
               )}
             </div>
@@ -205,7 +214,7 @@ export function AthleteView({
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className={`rounded-xl border px-4 py-2 text-center ${zoneClasses(data.load_summary.overall_zone)}`}>
-              <div className="text-xs font-semibold uppercase">Readiness</div>
+              <div className="text-xs font-semibold uppercase">{t.readiness}</div>
               <div className="text-2xl font-black">{data.load_summary.readiness_score}/100</div>
             </div>
             <button
@@ -324,13 +333,13 @@ export function AthleteView({
                   )}
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="font-semibold">
-                      Form Score: <span className="text-sky-700">{clip.form_score}/100</span>
+                      {t.formScore}: <span className="text-sky-700">{clip.form_score}/100</span>
                     </span>
                     <span className="rounded bg-slate-200 px-2 py-0.5 font-medium text-slate-800">
-                      {clip.witness_badge.replace("_", " ")}
+                      {trMap(WITNESS_LABELS, clip.witness_badge, lang)}
                     </span>
                     <span className={`rounded border px-2 py-0.5 font-bold uppercase ${zoneClasses(clip.risk_level)}`}>
-                      {clip.risk_level.replace("_", " ")}
+                      {trMap(RISK_LABELS, clip.risk_level, lang)}
                     </span>
                   </div>
                 </div>
@@ -340,10 +349,10 @@ export function AthleteView({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-bold uppercase tracking-wide text-teal-900">
-                        GenAI Coaching ({clip.ai_source})
+                        {t.genaiCoaching} ({clip.ai_source})
                       </span>
                       <span className="text-xs font-semibold text-slate-700">
-                        Confidence: {Math.round(clip.detection_confidence * 100)}%
+                        {t.confidence}: {Math.round(clip.detection_confidence * 100)}%
                       </span>
                     </div>
                     <p className="text-sm font-medium leading-relaxed">
@@ -410,7 +419,9 @@ export function AthleteView({
                           {d.unit}
                         </div>
                         <div className="text-xs">
-                          {d.delta_display || `Baseline ${d.baseline_median}${d.unit}`} (z={d.z_score})
+                          {d.delta >= 0 ? "+" : ""}
+                          {d.delta}
+                          {d.unit} {t.vsBaseline} (z={d.z_score})
                         </div>
                       </div>
                     ))}
@@ -450,16 +461,20 @@ export function AthleteView({
 
             {/* 4-week bar chart */}
             <div className="space-y-1">
-              <div className="text-xs font-semibold">4-Week Workload Trend ({data.limb_load_type.replace("_", " ")})</div>
+              <div className="text-xs font-semibold">
+                {t.workloadTrend} ({data.limb_load_type === "upper_limb" ? t.upperLimbLabel : t.lowerLimbLabel})
+              </div>
               <div className="flex h-24 items-end gap-2 rounded-md border border-slate-200 p-2">
                 {data.load_summary.weekly_series.map((val, idx) => (
                   <div key={idx} className="flex flex-1 flex-col items-center gap-1">
                     <div
                       className={`w-full rounded-t ${idx === 3 && data.load_summary.load_zone === "red" ? "bg-rose-600" : "bg-sky-600"}`}
                       style={{ height: `${Math.max(10, Math.round((val / maxWeekly) * 64))}px` }}
-                      title={`Week ${idx - 3 === 0 ? "Current" : idx - 3}: ${val}`}
+                      title={`${idx === 3 ? t.weekNow : `${t.weekPrefix}${3 - idx}`}: ${val}`}
                     />
-                    <span className="text-[10px] font-semibold">{idx === 3 ? "Now" : `W-${3 - idx}`}</span>
+                    <span className="text-[10px] font-semibold">
+                      {idx === 3 ? t.weekNow : `${t.weekPrefix}${3 - idx}`}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -474,10 +489,13 @@ export function AthleteView({
 
             {data.coach_notes.length > 0 && (
               <div className="space-y-1.5 border-t border-slate-200 pt-2">
-                <div className="text-xs font-bold uppercase text-slate-600">Coach Action Notes</div>
+                <div className="text-xs font-bold uppercase text-slate-600">{t.coachNotesTitle}</div>
                 {data.coach_notes.slice(0, 2).map((n) => (
                   <div key={n.id} className="rounded border border-sky-200 bg-sky-50 p-2 text-xs text-slate-900">
-                    <span className="font-bold uppercase text-sky-800">[{n.load_adjustment}]</span> {n.note_text}
+                    <span className="font-bold uppercase text-sky-800">
+                      [{trMap(ADJUSTMENT_LABELS, n.load_adjustment, lang)}]
+                    </span>{" "}
+                    {n.note_text}
                   </div>
                 ))}
               </div>
@@ -503,14 +521,14 @@ export function AthleteView({
             {showPbForm && (
               <form onSubmit={handleLogPb} className="space-y-2 rounded-md border border-slate-200 p-3 text-xs">
                 <div className="grid grid-cols-2 gap-2">
-                  <input value={pbEvent} onChange={(e) => setPbEvent(e.target.value)} placeholder="Event (400m)" className="rounded border p-1.5 text-slate-900" required />
-                  <input value={pbResult} onChange={(e) => setPbResult(e.target.value)} placeholder="50.65s" className="rounded border p-1.5 text-slate-900" required />
+                  <input value={pbEvent} onChange={(e) => setPbEvent(e.target.value)} placeholder={t.pbEventPh} className="rounded border p-1.5 text-slate-900" required />
+                  <input value={pbResult} onChange={(e) => setPbResult(e.target.value)} placeholder={t.pbResultPh} className="rounded border p-1.5 text-slate-900" required />
                 </div>
-                <input value={pbSeconds} onChange={(e) => setPbSeconds(e.target.value)} placeholder="Seconds (50.65)" className="w-full rounded border p-1.5 text-slate-900" required />
-                <input value={pbMeet} onChange={(e) => setPbMeet(e.target.value)} placeholder="Competition Name" className="w-full rounded border p-1.5 text-slate-900" required />
-                <input value={pbProof} onChange={(e) => setPbProof(e.target.value)} placeholder="Scorecard / Proof Link" className="w-full rounded border p-1.5 text-slate-900" />
+                <input value={pbSeconds} onChange={(e) => setPbSeconds(e.target.value)} placeholder={t.pbSecondsPh} className="w-full rounded border p-1.5 text-slate-900" required />
+                <input value={pbMeet} onChange={(e) => setPbMeet(e.target.value)} placeholder={t.pbMeetPh} className="w-full rounded border p-1.5 text-slate-900" required />
+                <input value={pbProof} onChange={(e) => setPbProof(e.target.value)} placeholder={t.pbProofPh} className="w-full rounded border p-1.5 text-slate-900" />
                 <button type="submit" className="k-btn-primary w-full rounded py-1.5 font-bold">
-                  Submit (Self-Reported)
+                  {t.pbSubmitBtn}
                 </button>
               </form>
             )}
@@ -533,7 +551,7 @@ export function AthleteView({
                           : "bg-amber-200 text-amber-950"
                     }`}
                   >
-                    {a.verification_tier.replace("_", " ")}
+                    {trMap(TIER_LABELS, a.verification_tier, lang)}
                   </span>
                 </li>
               ))}
@@ -555,7 +573,7 @@ export function AthleteView({
               className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-400 px-3 py-2 text-xs font-bold hover:bg-slate-100"
             >
               <Lock className="h-3.5 w-3.5" aria-hidden="true" />
-              {data.passport_public ? "Switch Passport to Private" : "Make Scout-Safe Passport Public"}
+              {data.passport_public ? t.switchToPrivate : t.switchToPublic}
             </button>
           </section>
         </div>

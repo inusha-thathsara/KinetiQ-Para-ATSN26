@@ -1,7 +1,7 @@
 "use client";
 
 import { Contrast, Globe, LogOut, Minus, Plus, Square, Volume2 } from "lucide-react";
-import { DICT, Lang } from "@/lib/i18n";
+import { DICT, Lang, ROLE_LABELS, trMap } from "@/lib/i18n";
 
 interface AccessibilityBarProps {
   lang: Lang;
@@ -129,7 +129,7 @@ export function AccessibilityBar({
               className="inline-flex items-center gap-1.5 rounded-md border border-white/40 px-3 py-1.5 text-xs font-semibold hover:bg-white/10"
             >
               <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
-              {t.signOut} ({userRole})
+              {t.signOut} ({trMap(ROLE_LABELS, userRole, lang)})
             </button>
           )}
         </nav>

@@ -13,7 +13,7 @@ import {
   ScoutPassportView,
   UserSummary,
 } from "@/lib/api";
-import { DICT, Lang } from "@/lib/i18n";
+import { CATEGORY_LABELS, DICT, Lang, ROLE_LABELS, trMap } from "@/lib/i18n";
 
 export default function HomePage() {
   const [lang, setLang] = useState<Lang>("en");
@@ -111,7 +111,11 @@ export default function HomePage() {
       setToken(res.access_token);
       setUser(res.user);
       await loadRoleData(res.access_token, res.user);
-      setLiveMessage(`Signed in as ${res.user.full_name} (${res.user.role}).`);
+      setLiveMessage(
+        lang === "ar"
+          ? `تم تسجيل الدخول باسم ${res.user.full_name_ar || res.user.full_name} (${trMap(ROLE_LABELS, res.user.role, "ar")}).`
+          : `Signed in as ${res.user.full_name} (${res.user.role}).`
+      );
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -179,7 +183,7 @@ export default function HomePage() {
               <div className="max-w-3xl space-y-2">
                 <div className="inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-900">
                   <Accessibility className="h-4 w-4" aria-hidden="true" />
-                  WCAG AAA · English &amp; Arabic RTL · Voice-First Para-Athletics GenAI
+                  {t.heroBadge}
                 </div>
                 <h1 className="text-2xl font-extrabold md:text-3xl">{t.loginHeading}</h1>
                 <p className="text-sm opacity-85">{t.loginSub}</p>
@@ -222,11 +226,11 @@ export default function HomePage() {
                       </div>
                       <div className="text-xs opacity-80">
                         {acc.disability_category
-                          ? acc.disability_category.replaceAll("_", " ")
+                          ? trMap(CATEGORY_LABELS, acc.disability_category, lang)
                           : acc.email}
                       </div>
                       <span className="mt-1 text-xs font-bold text-sky-700">
-                        {t.enterAs} {roleLabel} →
+                        {t.enterAs} {roleLabel} {lang === "ar" ? "←" : "→"}
                       </span>
                     </button>
                   );
@@ -238,24 +242,18 @@ export default function HomePage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="k-card space-y-1.5 p-4">
                 <Sparkles className="h-5 w-5 text-sky-700" aria-hidden="true" />
-                <h2 className="text-sm font-bold">Impairment-Aware Multimodal GenAI</h2>
-                <p className="text-xs opacity-85">
-                  MediaPipe Pose + Gemini 2.5 Vision keyframes track each Para-athlete against their own personal baseline—never able-bodied norms.
-                </p>
+                <h2 className="text-sm font-bold">{t.feat1Title}</h2>
+                <p className="text-xs opacity-85">{t.feat1Desc}</p>
               </div>
               <div className="k-card space-y-1.5 p-4">
                 <Shield className="h-5 w-5 text-emerald-700" aria-hidden="true" />
-                <h2 className="text-sm font-bold">Strict 2-Layer Disability Privacy</h2>
-                <p className="text-xs opacity-85">
-                  Shoulder fatigue, ACWR spikes, and gait alerts stay strictly between Athlete and Coach—structurally excluded from Scout APIs and PDF exports.
-                </p>
+                <h2 className="text-sm font-bold">{t.feat2Title}</h2>
+                <p className="text-xs opacity-85">{t.feat2Desc}</p>
               </div>
               <div className="k-card space-y-1.5 p-4">
                 <Users className="h-5 w-5 text-teal-700" aria-hidden="true" />
-                <h2 className="text-sm font-bold">Arabic RTL &amp; Voice-First Access</h2>
-                <p className="text-xs opacity-85">
-                  One-tap Arabic RTL switching, WCAG AAA high contrast, scalable text, and English/Arabic TTS voice coaching built for T11–T13 visually impaired runners.
-                </p>
+                <h2 className="text-sm font-bold">{t.feat3Title}</h2>
+                <p className="text-xs opacity-85">{t.feat3Desc}</p>
               </div>
             </div>
           </div>

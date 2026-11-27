@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, ClipboardCheck, ShieldAlert, Volume2 } from "lucide-react";
 import { apiFetch, PrivateHealthView } from "@/lib/api";
-import { DICT, Lang } from "@/lib/i18n";
+import { DICT, Lang, RISK_LABELS, trMap } from "@/lib/i18n";
 
 interface CoachViewProps {
   squad: PrivateHealthView[];
@@ -130,13 +130,13 @@ export function CoachView({
                         {lang === "ar" ? a.full_name_ar : a.full_name}
                       </h2>
                       <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${badgeCls}`}>
-                        {zone} · {a.load_summary.readiness_score}/100
+                        {trMap(RISK_LABELS, zone, lang)} · {a.load_summary.readiness_score}/100
                       </span>
                     </div>
                     <div className="flex items-center gap-3 text-xs font-semibold">
-                      <span>ACWR: {a.load_summary.acwr}</span>
+                      <span>{t.acwrLabel}: {a.load_summary.acwr}</span>
                       <span>
-                        WoW: {a.load_summary.wow_change_pct > 0 ? "+" : ""}
+                        {t.wowLabel}: {a.load_summary.wow_change_pct > 0 ? "+" : ""}
                         {a.load_summary.wow_change_pct}%
                       </span>
                       <span className="rounded bg-white px-2 py-0.5 text-slate-800">
@@ -157,7 +157,7 @@ export function CoachView({
                   {a.latest_clip && (
                     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-300/70 pt-2 text-xs">
                       <span>
-                        Latest Clip Score: <strong>{a.latest_clip.form_score}/100</strong> · Confidence:{" "}
+                        {t.latestClipScore}: <strong>{a.latest_clip.form_score}/100</strong> · {t.confidence}:{" "}
                         <strong>{Math.round(a.latest_clip.detection_confidence * 100)}%</strong>
                       </span>
                       <div className="flex flex-wrap gap-2">
@@ -198,7 +198,7 @@ export function CoachView({
             </h2>
             <form onSubmit={handleLogSession} className="space-y-3 text-xs">
               <label className="block font-semibold">
-                Workout Title
+                {t.workoutTitleLabel}
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -208,7 +208,7 @@ export function CoachView({
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block font-semibold">
-                  Load Series
+                  {t.loadSeriesLabel}
                   <select
                     value={limbType}
                     onChange={(e) => {
@@ -219,12 +219,12 @@ export function CoachView({
                     }}
                     className="mt-1 w-full rounded border border-slate-300 bg-white p-2 text-slate-900"
                   >
-                    <option value="upper_limb">Upper-Limb (Wheelchair)</option>
-                    <option value="lower_limb">Lower-Limb (Standing/VI)</option>
+                    <option value="upper_limb">{t.upperLimbOption}</option>
+                    <option value="lower_limb">{t.lowerLimbOption}</option>
                   </select>
                 </label>
                 <label className="block font-semibold">
-                  Intensity RPE (1–10)
+                  {t.rpeLabel}
                   <input
                     type="number"
                     min="1"
@@ -238,7 +238,7 @@ export function CoachView({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block font-semibold">
-                  Duration (min)
+                  {t.durationLabel}
                   <input
                     type="number"
                     value={duration}
@@ -247,7 +247,7 @@ export function CoachView({
                   />
                 </label>
                 <label className="block font-semibold">
-                  Distance (m)
+                  {t.distanceLabel}
                   <input
                     type="number"
                     value={distance}
@@ -258,7 +258,7 @@ export function CoachView({
               </div>
 
               <fieldset className="space-y-1">
-                <legend className="font-semibold">1-Click Attendance</legend>
+                <legend className="font-semibold">{t.attendanceLabel}</legend>
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {squad.map((a) => {
                     const checked = selectedIds.includes(a.athlete_id);
@@ -274,7 +274,7 @@ export function CoachView({
                             : "border-slate-300 bg-white text-slate-800"
                         }`}
                       >
-                        {a.ipc_class} {a.full_name.split(" ")[0]}
+                        {a.ipc_class} {(lang === "ar" ? a.full_name_ar : a.full_name).split(" ")[0]}
                       </button>
                     );
                   })}
@@ -299,18 +299,18 @@ export function CoachView({
             </h2>
             {pendingAchievements.length === 0 ? (
               <p className="flex items-center gap-1.5 text-xs text-emerald-800">
-                <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> All submitted PBs are verified.
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> {t.allPbsVerified}
               </p>
             ) : (
               <div className="space-y-3">
                 {pendingAchievements.map(({ athlete, ach }) => (
                   <div key={ach.id} className="k-muted space-y-2 p-3 text-xs">
                     <div className="font-bold">
-                      {athlete.full_name} ({ach.ipc_class}) — {ach.event_name}:{" "}
+                      {lang === "ar" ? athlete.full_name_ar : athlete.full_name} ({ach.ipc_class}) — {ach.event_name}:{" "}
                       <span className="text-sky-700">{ach.result_value}</span>
                     </div>
                     <div className="opacity-85">
-                      {ach.competition_name} · Proof: <code>{ach.proof_reference || "attached"}</code>
+                      {ach.competition_name} · {t.proofLabel}: <code>{ach.proof_reference || t.attachedLabel}</code>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
